@@ -1,9 +1,13 @@
+# C compiler flags
 CFLAGS	:= -std=c99 -Wall -Wpedantic -D_GNU_SOURCE -g
+
+# Objects
+OBJ	:= src/bfjit.o src/gen_amd64.o
 
 .PHONY: all
 all: bfjit
 
-bfjit: bfjit.o gen_amd64.o
+bfjit: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
@@ -11,9 +15,4 @@ bfjit: bfjit.o gen_amd64.o
 
 .PHONY: clean
 clean:
-	rm -f bfjit *.o
-
-test: bfjit
-	./bfjit test/mandelbrot.b > helloworld.asm
-	nasm -f elf64 helloworld.asm
-	ld helloworld.o -o helloworld
+	rm -f bfjit $(OBJ)
