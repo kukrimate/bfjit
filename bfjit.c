@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/mman.h>
+
+/*
+ * Width of one level of indentation in the debug output
+ */
+#define INDENT_WIDTH 4
 
 typedef struct bfnode bfnode;
 
@@ -53,7 +57,7 @@ print_bftree(bfnode *root, int spaces)
 		for (int i = 0; i < spaces; ++i)
 			putchar(' ');
 		printf("%c\n", root->op);
-		print_bftree(root->chld, spaces + 2);
+		print_bftree(root->chld, spaces + INDENT_WIDTH);
 	}
 }
 
@@ -167,11 +171,14 @@ print_iltree(ilnode *root, int spaces)
 			break;
 		case WHILE:
 			printf("WHILE [%d]\n", root->offset);
-			print_iltree(root->chld, spaces + 2);
+			print_iltree(root->chld, spaces + INDENT_WIDTH);
 			break;
 		}
 	}
 }
+
+void
+genasm(ilnode *root, int offset);
 
 int
 main(int argc, char *argv[])
@@ -180,8 +187,6 @@ main(int argc, char *argv[])
 	FILE *fp;
 	bfnode *broot;
 	ilnode *iroot;
-
-	unsigned char *prog, *tape;
 
 	flag_b = flag_i = 0;
 	while ((opt = getopt(argc, argv, "bi")) > 0)
@@ -213,10 +218,7 @@ main(int argc, char *argv[])
 	if (flag_i)
 		print_iltree(iroot, 0);
 
-	prog = mmap(NULL, 0x10000, PROT_READ | PROT_WRITE | PROT_EXEC,
-		MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	tape = mmap(NULL, 0x10000, PROT_READ | PROT_WRITE,
-		MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	genasm(iroot, 0);
 
 	fclose(fp);
 	return 0;
