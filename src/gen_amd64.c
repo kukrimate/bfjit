@@ -1,26 +1,8 @@
 /*
- * AMD64 backend for bjfit
+ * AMD64 code generator
  */
-
 #include <stdio.h>
-
-typedef enum {
-	ADD,
-	ADDBP,
-	READ,
-	WRITE,
-	WHILE
-} iltype;
-
-typedef struct ilnode ilnode;
-
-struct ilnode {
-	iltype	type;
-	int	offset;
-	int	constant;
-	ilnode	*chld;
-	ilnode	*next;
-};
+#include "il.h"
 
 static const char *header =
 "section .data\n"

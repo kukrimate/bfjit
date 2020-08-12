@@ -2,7 +2,7 @@
 CFLAGS	:= -std=c99 -Wall -Wpedantic -D_GNU_SOURCE -g
 
 # Objects
-OBJ	:= src/bfjit.o src/gen_amd64.o
+OBJ	:= src/bfjit.o src/il.o src/gen_amd64.o
 
 .PHONY: all
 all: bfjit

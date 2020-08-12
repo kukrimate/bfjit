@@ -1,46 +1,10 @@
+/*
+ * Brainfuck frontend and driver
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-/*
- * Width of one level of indentation in the debug output
- */
-#define INDENT_WIDTH 4
-
-/*
- * Intermediate language
- */
-
-/* Operation type */
-typedef enum {
-	ADD,
-	ADDBP,
-	READ,
-	WRITE,
-	WHILE
-} iltype;
-
-/* Tree node */
-typedef struct ilnode ilnode;
-
-struct ilnode {
-	iltype	type;
-	int	offset;
-	int	constant;
-	ilnode	*chld;
-	ilnode	*next;
-};
-
-void
-append_ilnode(ilnode **tail, iltype type, int offset, int constant)
-{
-	(*tail) = malloc(sizeof(ilnode));
-	(*tail)->type = type;
-	(*tail)->offset = offset;
-	(*tail)->constant = constant;
-	(*tail)->chld = NULL;
-	(*tail)->next = NULL;
-}
+#include "il.h"
 
 void
 build_iltree(ilnode **tail, FILE *fp, int startoffs, _Bool subtree)
@@ -99,33 +63,6 @@ endfunc:
 		append_ilnode(tail, ADDBP, offset, 0);
 }
 
-void
-print_iltree(ilnode *root, int spaces)
-{
-	for (; root; root = root->next) {
-		for (int i = 0; i < spaces; ++i)
-			putchar(' ');
-
-		switch (root->type) {
-		case ADD:
-			printf("ADD [%d], %d\n", root->offset, root->constant);
-			break;
-		case ADDBP:
-			printf("ADDBP %d\n", root->offset);
-			break;
-		case READ:
-			printf("READ [%d]\n", root->offset);
-			break;
-		case WRITE:
-			printf("WRITE [%d]\n", root->offset);
-			break;
-		case WHILE:
-			printf("WHILE [%d]\n", root->offset);
-			print_iltree(root->chld, spaces + INDENT_WIDTH);
-			break;
-		}
-	}
-}
 
 void
 genasm(ilnode *root, int offset);
@@ -159,9 +96,10 @@ main(int argc, char *argv[])
 	build_iltree(&iroot, fp, 0, 0);
 	if (flag_i)
 		print_iltree(iroot, 0);
+	else
+		genasm(iroot, 0);
 
-	genasm(iroot, 0);
-
+	free_iltree(iroot);
 	fclose(fp);
 	return 0;
 
