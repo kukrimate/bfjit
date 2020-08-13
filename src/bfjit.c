@@ -65,7 +65,7 @@ endfunc:
 
 
 void
-genasm(ilnode *root, int offset);
+genasm(ilnode *root);
 
 int
 main(int argc, char *argv[])
@@ -97,7 +97,7 @@ main(int argc, char *argv[])
 	if (flag_i)
 		print_iltree(iroot, 0);
 	else
-		genasm(iroot, 0);
+		genasm(iroot);
 
 	free_iltree(iroot);
 	fclose(fp);
