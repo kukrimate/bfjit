@@ -1,12 +1,8 @@
 # C compiler flags
-CFLAGS	:= -Ikeystone/build/lib/include -Ilibkm \
-	-std=c99 -Wall -Wpedantic -D_GNU_SOURCE -g
-
-# Libraries to link
-LDLIBS	:= -Lkeystone/build/lib/lib -lkeystone
+CFLAGS	:= -std=gnu99 -Wall -D_GNU_SOURCE -g
 
 # Objects
-OBJ	:= src/bfjit.o src/il.o src/gen_amd64.o
+OBJ	:= src/bfjit.o src/il.o src/jit_amd64.o
 
 .PHONY: all
 all: bfjit
