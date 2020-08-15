@@ -43,6 +43,21 @@ write64(uint8_t **ptr, uint64_t val)
 
 static
 void
+encode_mov(uint8_t **ptr, int offset, int constant)
+{
+	*(*ptr)++ = 0xc6;
+	if (ALLOW_VARIABLE && INT8_MIN < offset && offset < INT8_MAX) {
+		*(*ptr)++ = 0x45;
+		*(*ptr)++ = offset;
+	} else {
+		*(*ptr)++ = 0x85;
+		write32(ptr, offset);
+	}
+	*(*ptr)++ = constant;
+}
+
+static
+void
 encode_add(uint8_t **ptr, int offset, int constant)
 {
 	*(*ptr)++ = 0x80;
@@ -117,6 +132,10 @@ void
 geninsn(ilnode *cur)
 {
 	switch (cur->type) {
+	case MOV:
+		encode_mov(&codeptr, cur->offset, cur->constant);
+			/* mov byte [rbp+cur->offset], cur->constant */
+		break;
 	case ADD:
 		encode_add(&codeptr, cur->offset, cur->constant);
 			/* add byte [rbp+cur->offset], cur->constant */

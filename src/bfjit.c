@@ -94,6 +94,7 @@ main(int argc, char *argv[])
 	}
 
 	build_iltree(&iroot, fp, 0, 0);
+	optimize_iltree(&iroot);
 	if (flag_i)
 		print_iltree(iroot, 0);
 	else

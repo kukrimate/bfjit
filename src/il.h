@@ -12,6 +12,7 @@
 
 /* Operation type */
 typedef enum {
+	MOV,
 	ADD,
 	ADDBP,
 	READ,
@@ -32,6 +33,9 @@ struct ilnode {
 
 void
 append_ilnode(ilnode **tail, iltype type, int offset, int constant);
+
+void
+optimize_iltree(ilnode **root);
 
 void
 print_iltree(ilnode *root, int spaces);
