@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "il.h"
+#include "bitvec.h"
 
 void
 append_ilnode(ilnode **tail, iltype type, int offset, int constant)
@@ -74,6 +75,8 @@ optimize_merge(ilnode **root)
 		/* Candidates */
 		case MOV:
 			if ((*root)->offset == (*cur)->offset) {
+				/* If root was an add it still becomes a MOV */
+				(*root)->type = MOV;
 				(*root)->constant = (*cur)->constant;
 				tmp = (*cur)->next;
 				free(*cur);
@@ -99,38 +102,182 @@ optimize_merge(ilnode **root)
 				return;
 			cur = &(*cur)->next;
 			break;
-		case WHILE:
-			/* Do some redundant loop elimination here */
-			if ((*root)->offset == (*cur)->offset &&
-					!(*root)->constant) {
-				free_iltree((*cur)->chld);
-				tmp = (*cur)->next;
-				free(*cur);
-				*cur = tmp;
-			} else {
-				/* Loop is not redundant, thus a barrier */
-				return;
-			}
-			break;
-		/* Everything else is always considered barrier */
 		default:
+			/* Everything else is always considered barrier */
 			return;
 		}
 }
 
 static
 void
-optimzie_merge_r(ilnode **root)
+optimize_merge_r(ilnode **root)
 {
-	ilnode **cur;
+	ilnode **cur, *tmp;
 
-	for (cur = root; *cur; cur = &(*cur)->next)
+	for (cur = root; *cur;)
 		switch ((*cur)->type) {
 		case MOV:
+		case ADD:
 			optimize_merge(cur);
+			if ((*cur)->type == ADD && !(*cur)->constant) {
+				tmp = (*cur)->next;
+				free(*cur);
+				*cur = tmp;
+			} else {
+				cur = &(*cur)->next;
+			}
 			break;
 		case WHILE:
-			optimzie_merge_r(&(*cur)->chld);
+			optimize_merge_r(&(*cur)->chld);
+			cur = &(*cur)->next;
+			break;
+		default:
+			cur = &(*cur)->next;
+			break;
+		}
+}
+
+static
+void
+optimize_movify(ilnode **root)
+{
+	bitvec tainted;
+	ilnode **cur, *tmp;
+
+	tainted = BITVEC_INIT;
+
+	for (cur = root; *cur; )
+		switch ((*cur)->type) {
+		case ADD:
+			if (!bitvec_isset(&tainted, (*cur)->offset))
+				(*cur)->type = MOV;
+		case MOV:
+		case READ:
+			bitvec_set(&tainted, (*cur)->offset);
+		case WRITE:
+			cur = &(*cur)->next;
+			break;
+		case WHILE:
+			if ((*root)->offset == (*cur)->offset &&
+				!bitvec_isset(&tainted, (*cur)->offset)) {
+				free_iltree((*cur)->chld);
+				tmp = (*cur)->next;
+				free(*cur);
+				*cur = tmp;
+				break;
+			}
+		default:
+			return;
+		}
+
+	if (tainted.array)
+		free(tainted.array);
+}
+
+static
+void
+duplicate(ilnode ***tgt, ilnode *tree, int cnt)
+{
+	ilnode *cur;
+
+	while (cnt--)
+		for (cur = tree; cur; cur = cur->next) {
+			append_ilnode(*tgt,
+				cur->type, cur->offset, cur->constant);
+			*tgt = &(**tgt)->next;
+		}
+}
+
+static
+void
+optimize_unroll(ilnode **root)
+{
+	ilnode **cur, *tmp, *tmp2;
+	int cntmod;
+
+	for (cur = &(*root)->next; *cur;)
+		switch ((*cur)->type) {
+		case MOV:
+		case ADD:
+		case READ:
+			/* Can't find a dependent loop */
+			if ((*cur)->offset == (*root)->offset)
+				return;
+		case WRITE: /* We can just ignore writes */
+			cur = &(*cur)->next;
+			break;
+		case WHILE:
+			/* Can't go further,
+				found a loop dependent on something else */
+			if ((*cur)->offset != (*root)->offset)
+				return;
+
+			/* See if the loop can be eliminated */
+			if (!(*root)->constant) {
+				free_iltree((*cur)->chld);
+				tmp = (*cur)->next;
+				free(*cur);
+				*cur = tmp;
+				break;
+			}
+
+			cntmod = 0;
+			for (tmp = (*cur)->chld; tmp; tmp = tmp->next)
+				switch (tmp->type) {
+				case MOV:
+					if (tmp->offset == (*root)->offset)
+						cntmod = tmp->constant;
+					break;
+				case ADD:
+					if (tmp->offset == (*root)->offset)
+						cntmod += tmp->constant;
+					break;
+				/* Check for non-balanced or nested loop */
+				case WHILE:
+				case ADDBP:
+					return;
+				case READ:
+					/* Loop counter comes from user */
+					if (tmp->offset == (*root)->offset)
+						return;
+				case WRITE:
+					break;
+				}
+
+			/* Infinite loop, not unrollable */
+			if (!cntmod || (*root)->constant % cntmod)
+				return;
+
+			/* Found unroll candidate */
+			if (cntmod < 0)
+				cntmod = (*root)->constant / -cntmod;
+			else
+				cntmod = (255 - (*root)->constant) / cntmod;
+
+			tmp = (*cur)->chld;
+			tmp2 = (*cur)->next;
+			free(*cur);
+			duplicate(&cur, tmp, cntmod);
+			free_iltree(tmp);
+			*cur = tmp2;
+			return;
+		case ADDBP:
+			/* We can't search further */
+			return;
+		}
+}
+
+static
+void
+optimize_unroll_r(ilnode **root)
+{
+	for (; *root; root = &(*root)->next)
+		switch ((*root)->type) {
+		case MOV:
+			optimize_unroll(root);
+			break;
+		case WHILE:
+			optimize_unroll_r(&(*root)->chld);
 			break;
 		default:
 			break;
@@ -140,8 +287,15 @@ optimzie_merge_r(ilnode **root)
 void
 optimize_iltree(ilnode **root)
 {
+	int i;
 	optimize_zeroloop_r(root);
-	optimzie_merge_r(root);
+	for (i = 0; i < 3; ++i) {
+		optimize_merge_r(root);
+		optimize_movify(root);
+		optimize_unroll_r(root);
+		optimize_movify(root);
+		optimize_merge_r(root);
+	}
 }
 
 void

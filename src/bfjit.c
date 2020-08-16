@@ -70,15 +70,18 @@ gencode(ilnode *root);
 int
 main(int argc, char *argv[])
 {
-	int opt, flag_i;
+	int opt, flag_i, flag_o;
 	FILE *fp;
 	ilnode *iroot;
 
-	flag_i = 0;
-	while ((opt = getopt(argc, argv, "i")) > 0)
+	flag_i = flag_o = 0;
+	while ((opt = getopt(argc, argv, "io")) > 0)
 		switch (opt) {
 		case 'i':
 			flag_i = 1;
+			break;
+		case 'o':
+			flag_o = 1;
 			break;
 		default:
 			goto print_usage;
@@ -94,7 +97,8 @@ main(int argc, char *argv[])
 	}
 
 	build_iltree(&iroot, fp, 0, 0);
-	optimize_iltree(&iroot);
+	if (flag_o)
+		optimize_iltree(&iroot);
 	if (flag_i)
 		print_iltree(iroot, 0);
 	else
@@ -106,6 +110,6 @@ main(int argc, char *argv[])
 
 print_usage:
 
-	fprintf(stderr, "Usage: %s [-i] PROG\n", argv[0]);
+	fprintf(stderr, "Usage: %s [-i] [-o] PROG\n", argv[0]);
 	return 1;
 }
